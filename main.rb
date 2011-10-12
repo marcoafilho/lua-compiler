@@ -15,7 +15,7 @@ when 1
   line_number = 1
   while line = file.gets
     puts " %3d: #{line.strip}" % line_number
-    scan.tokens.collect do |token| 
+    @symbol_table = scan.tokens.collect do |token| 
       if token.line_number == line_number
         case token.type
         when :reserved_word
@@ -29,8 +29,11 @@ when 1
         when :identifier
           puts "\t %3d: ID, name= #{token.value}" % token.line_number 
         end
+        
+        token
       end
-    end
+    end.compact
     line_number += 1
   end
+when 2
 end
