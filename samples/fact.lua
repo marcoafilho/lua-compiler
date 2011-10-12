@@ -1,7 +1,7 @@
---[[
+--[====[
 	Sample program in Lua language
 	Computes factorial
---]]
+--]====]
 
 x = tonumber(io.read()) -- Input an integer
 if 0 < x then -- Don't compute if x <= 0
