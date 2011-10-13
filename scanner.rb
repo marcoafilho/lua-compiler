@@ -7,49 +7,13 @@ class Scanner
   attr_reader :file
   attr_accessor :eof, :line_info, :tokens
   
-  def initialize(file_name = "")
-    @file = File.open(file_name.to_s)
+  def initialize(file)
+    @file = file
     @line_info = { :line_position => 0, :line_number => 1, :line => file.gets }
     @eof = false
     @tokens = []
-    scan
   end
   
-  private  
-  #TODO This class will define that the token will follow
-  class Automata; end
-    
-  #TODO Try to put everything that is related to the file in the source code class.
-  class SourceCode; end
-
-  # Get the next character in the source code.
-  # In case it reached the last line returns the constant :end_of_file.
-  def get_next_char
-    update_line_info
-
-    if line_info[:line]
-      line_info[:line][line_info[:line_position]].chr
-    else
-      self.eof = true
-      :end_of_file
-    end
-  end
-
-  # Subtract 1 from the line position unless it is the end of file.
-  def unget_next_char
-    self.line_info[:line_position] -= 1 unless eof
-  end
-  
-  def update_line_info
-    if !eof && line_info[:line_position].eql?(line_info[:line].length - 1)
-      self.line_info[:line_position] = 0
-      self.line_info[:line_number] = line_info[:line_number] ? line_info[:line_number] + 1 : 1
-      self.line_info[:line] = file.gets
-    else
-      self.line_info[:line_position] += 1
-    end    
-  end
-
   def scan
     chr = line_info[:line][line_info[:line_position]].chr
     
@@ -340,6 +304,41 @@ class Scanner
       token.update_if(:reserved_word) || token.update_if(:special_symbol)
       self.tokens.push(token) if !token.type.nil?
     end
+  end
+  
+  private  
+  #TODO This class will define that the token will follow
+  class Automata; end
+    
+  #TODO Try to put everything that is related to the file in the source code class.
+  class SourceCode; end
+
+  # Get the next character in the source code.
+  # In case it reached the last line returns the constant :end_of_file.
+  def get_next_char
+    update_line_info
+
+    if line_info[:line]
+      line_info[:line][line_info[:line_position]].chr
+    else
+      self.eof = true
+      :end_of_file
+    end
+  end
+
+  # Subtract 1 from the line position unless it is the end of file.
+  def unget_next_char
+    self.line_info[:line_position] -= 1 unless eof
+  end
+  
+  def update_line_info
+    if !eof && line_info[:line_position].eql?(line_info[:line].length - 1)
+      self.line_info[:line_position] = 0
+      self.line_info[:line_number] = line_info[:line_number] ? line_info[:line_number] + 1 : 1
+      self.line_info[:line] = file.gets
+    else
+      self.line_info[:line_position] += 1
+    end    
   end
   
   def standard_error_message(chr, line_number)
