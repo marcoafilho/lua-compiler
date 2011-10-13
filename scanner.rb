@@ -7,8 +7,8 @@ class Scanner
   attr_reader :file
   attr_accessor :eof, :line_info, :tokens
   
-  def initialize(file)
-    @file = file
+  def initialize(file_name)
+    @file = File.open(file_name, "r+")
     @line_info = { :line_position => 0, :line_number => 1, :line => file.gets }
     @eof = false
     @tokens = []
@@ -304,6 +304,8 @@ class Scanner
       token.update_if(:reserved_word) || token.update_if(:special_symbol)
       self.tokens.push(token) if !token.type.nil?
     end
+    
+    self
   end
   
   private  

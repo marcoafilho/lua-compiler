@@ -50,7 +50,39 @@ class Token
     end
   end
   
+  # Returns the type of the token, unless it is a reserved word.
+  # If that is the case, it returns the symbol value of it.
+  def parser_type
+    type.eql?(:reserved_word) ? value.to_sym : type
+  end
+  
+  def end_of_file?
+    type.eql?(:end_of_file)
+  end
+  
   def special_symbol?
     type if Token::TOKEN_TYPE[:special_symbols][type]
+  end
+  
+  def starter?
+    type.eql?(:identifier) || type.eql?(:open_parentheses) || 
+    value.eql?("do") || value.eql?("while") || value.eql?("repeat") ||
+    value.eql?("if") || value.eql?("for") || value.eql?("function") ||
+    value.eql?("local")
+  end
+  
+  def breaker?
+    value.eql?("return") || value.eql?("break")
+  end
+  
+  def binary_comparator?
+    value.eql?("or") || value.eql?("and") ||
+    type.eql?(:comparison) || type.eql?(:difference) || type.eql?(:lower_equal_than) ||
+    type.eql?(:greather_equal_than) || type.eql?(:lower_than) || type.eql?(:greater_than)    
+  end
+  
+  def comparator?
+    type.eql?(:comparison) || type.eql?(:difference) || type.eql?(:lower_equal_than) ||
+    type.eql?(:greather_equal_than) || type.eql?(:lower_than) || type.eql?(:greater_than)
   end
 end
