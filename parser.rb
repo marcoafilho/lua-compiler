@@ -1,22 +1,26 @@
+require "syntax_tree"
+
 class Parser
   class ParserReject < StandardError
     STD_MESSAGE = "PARSER REJECT"
   end
   
   attr_reader :tokens
-  attr_accessor :remaining_tokens, :look_ahead
+  attr_accessor :remaining_tokens, :look_ahead, :syntax_tree
   
   def initialize(tokens)
     @tokens = tokens
     @remaining_tokens = tokens
+    @syntax_tree = SyntaxTree.new
   end
   
   def parse
     self.look_ahead = next_token
-    chunk
+    syntax_tree.root = chunk
 
     raise_parser_reject unless look_ahead.end_of_file?
-    self
+    
+    syntax_tree
   end
   
   protected
@@ -37,15 +41,22 @@ class Parser
     end
   end
   
-  private  
-
+  private
+  
   # This is the parser starter.
   # chunk := {{{identifier | open_parentheses | ...} stat} | {{return | break} laststat}} [';']
   def chunk
-    while look_ahead.starter? || look_ahead.breaker?
-      look_ahead.starter? ? stat : laststat
+    node = SyntaxTree::Node.new(:type => :chunk)
+    
+    while look_ahead.starter?
+      node.add_child(stat)
       optscolon
     end
+    if look_ahead.breaker?
+      node.add_child(laststat)
+    end
+    
+    node
   end
   
   def block
@@ -53,88 +64,122 @@ class Parser
   end
   
   def stat
+    node = SyntaxTree::Node.new(:type => :stat)
+    
     case look_ahead.parser_type
     when :identifier
-      accept
-      varlist
-      if look_ahead.parser_type == :assign
+      prefix_node = node.add_child(prefixexp).last
+      while look_ahead.parser_type == :comma && prefix_node.type == :var
         accept
-        explist
+        node.add_child(prefixexp)
       end
+      
+      if prefix_node.type == :var
+        stat_node = SyntaxTree::Node.new(:type => :assign)
+        list_node = SyntaxTree::Node.new(:type => :var_list)
+        stat_node.add_child(list_node)
+        
+        if look_ahead.parser_type == :assign
+          accept
+          stat_node.add_child(explist)
+        end
+        node = stat_node
+      end
+      
+      #TODO remove this if application is working
+      # accept
+      # varlist
+      # if look_ahead.parser_type == :assign
+      #   accept
+      #   explist
+      # end
     when :do
       accept
-      block
+      node = block
       accept(:end)
     when :while
+      node.type = :while
+      
       accept
-      logicexp
+      node.add_child(logicexp)
       accept(:do)
-      block
+      node.add_child(block)
       accept(:end)
     when :repeat
+      node.type = :repeat
+      
       accept
-      block
+      node.add_child(block)
       accept(:until)
-      logicexp
+      node.add_child(logicexp)
     when :if
+      node.type = :if
+      
       accept
-      logicexp
+      node.add_child(logicexp)
       accept(:then)
-      block
+      node.add_child(block)
       
       while look_ahead.parser_type == :elseif
+        elsif_node = SyntaxTree::Node(:type => :if)
         accept
-        logicexp
+        elsif_node.add_child(logicexp)
         accept(:then)
-        block
+        elsif_node.add_child(block)
+        node.add_child(elsif_node)
       end
       
       if look_ahead.parser_type == :else
         accept
-        block
+        node.add_child(block)
       end
       
       accept(:end)
     when :for
+      node.type = :for
+      
       accept
-      accept(:identifier)
+      node.add_terminal_child(accept(:identifier))
       if look_ahead.parser_type == :assign
         accept
-        logicexp
+        node.add_child(logicexp)
         accept(:comma)
-        logicexp
+        node.add_child(logicexp)
         if look_ahead.parser_type == :comma
           accept
-          logicexp
+          node.add_child(logicexp)
         end
       else
-        namelistexp
+        stat_node = SyntaxTree::Node.new(:type => :in)
+        node.add_child(stat_node)
+        node.add_child(namelistexp)
         accept(:in)
-        explist
+        node.add_child(explist)
       end
       
       accept(:do)
-      block
+      node.add_child(block)
       accept(:end)
     when :function
+      node.type = :function
       accept
-      funcname
-      funcbody
+      node.add_child(funcname)
+      node.add_child(funcbody)
     when :local
       accept
       if look_ahead.parser_type == :function
-        accept(:identifier)
-        funcbody
-      elsif look_ahead.parser_type == :identifier
-        accept
-        while look_ahead.parser_type == :comma
-          accept
-          accept(:identifier)
+        node.type = :function
+        node.add_terminal_child(accept(:identifier))
+        node.add_child(funcbody)
+      elsif look_ahead.parser_type == :identifier 
+        node.type = :assign
+        if look_ahead.parser_type == :identifier
+          node.add_child(namelist)
         end
         
         if look_ahead.parser_type == :assign
           accept(:assign)
-          explist
+          node.add_child(explist)
         end
       else
         raise_parser_reject
@@ -142,21 +187,31 @@ class Parser
     else
       raise_parser_reject
     end
+    
+    node
   end
   
   def laststat
+    node = SyntaxTree::Node.new(:type => :laststat)
+    
     case look_ahead.parser_type
     when :return
+      node.type = :return
       accept
-      explist
+      node.add_child(explist)
     when :break
       accept
+      node.type = :break
     else
       raise_parser_reject
     end
+    
+    node
   end
   
   def funcname
+    node = SyntaxTree::Node.new(:type => :funcname)
+    node.token = look_ahead
     accept(:identifier)
 
     while look_ahead.parser_type == :comma
@@ -170,50 +225,75 @@ class Parser
     end
   end
   
-  def varlist
-    while look_ahead.parser_type == :comma
-      accept
-      var
-    end
-    var  
-  end
-
-  def var
-    prefixexprest    
-  end
+  # def varlist
+  #   node = SyntaxTree::Node.new
+  #   
+  #   while look_ahead.parser_type == :comma
+  #     accept
+  #     var
+  #   end
+  #   var  
+  #   
+  #   node
+  # end
+  # 
+  # def var
+  #   prefixexprest    
+  # end
     
-  def namelistexp; end
+  def namelistexp;  end
   
   def namelist
+    node = SyntaxTree::Node.new(:type => :namelist)
+    
+    if look_ahead.parser_type == :identifier
+      node.add_terminal_child(accept(:identifier))
+      node.add_child(namelistexp)
+    end
+    
     while look_ahead.parser_type == :comma
       accept
-      accept(:identifier)
-    end    
+      node.add_terminal_child(accept(:identifier))
+    end
+    
+    node
   end
   
   def explist
-    logicexp
+    node = SyntaxTree::Node.new(:type => :explist)
+    
+    node.add_child(logicexp)
     while look_ahead.parser_type == :comma
       accept
-      logicexp
+      node.add_child(logicexp)
     end
   end
   
   # Expressions by priority
   def logicexp
-    comparisonexp
+    node = comparisonexp
+    
     while look_ahead.parser_type == :or || look_ahead.parser_type == :and
+      node.type = :op
+      node.token = look_ahead
       accept
-      comparisonexp
+      node.add_child(comparisonexp)
     end
+    
+    node
   end
     
   def comparisonexp
-    modularexp
+    node = modularexp
+
     while look_ahead.comparator?
+      node.type = :op
+      node.token = look_ahead
       accept
-      modularexp
+      node.add_child(modularexp)
     end
+    
+    node
   end
   
   def modularexp
@@ -259,17 +339,48 @@ class Parser
   end
     
   def prefixexp
+    node = SyntaxTree::Node.new
+    
     if look_ahead.parser_type == :identifier
+      node.type = :var
+      node.add_terminal_child(look_ahead)
+      
       accept
-      prefixexprest
     else
       accept(:open_parentheses)
-      logicexp
+      node = logicexp
       accept(:close_parentheses)
-      prefixexprest
     end
+    
+    while 1
+      case look_ahead.parser_type
+      when :open_sbrackets
+        accept
+        node.add_child(logicexp)
+        accept(:close_sbrackets)
+        next
+      when :dot
+        accept
+        node.add_terminal_child(accept(:identifier))
+        next
+      when :open_parentheses || :open_brackets || :string
+        node.type = :functioncall
+        node.add_child(args)
+        next
+      when :concatenation
+        accept
+        node.type = :functioncall
+        node.add_terminal_child(accept(:identifier))
+        node.add_child(args)
+        next
+      end
+      break
+    end
+        
+    node
   end
   
+  #TODO Check usage to remove this method
   def prefixexprest
     while 1
       case look_ahead.parser_type

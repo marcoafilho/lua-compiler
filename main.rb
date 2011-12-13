@@ -11,12 +11,13 @@ case(option)
 when 1
   scan = Scanner.new($file_name).scan
   output(scan)  
-  begin
+  # begin
     parse = Parser.new(scan.tokens).parse
+    output(parse)
     puts "PARSER OK"
-  rescue
+  # rescue
     puts "PARSER REJECT"
-  end
+  # end
 when 2
   scan = Scanner.new($file_name).scan
   output(scan)
@@ -24,6 +25,7 @@ when 3
   scan = Scanner.new($file_name).scan
   begin
     parse = Parser.new(scan.tokens).parse
+    output(parse)
     puts "PARSER OK"
   rescue
     puts "PARSER REJECT"
