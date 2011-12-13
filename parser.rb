@@ -267,6 +267,8 @@ class Parser
       accept
       node.add_child(logicexp)
     end
+    
+    node
   end
   
   # Expressions by priority
@@ -274,10 +276,11 @@ class Parser
     node = comparisonexp
     
     while look_ahead.parser_type == :or || look_ahead.parser_type == :and
-      node.type = :op
-      node.token = look_ahead
+      token = look_ahead
       accept
-      node.add_child(comparisonexp)
+      child = node.add_child(comparisonexp).last
+      child.type = :op
+      child.token = token
     end
     
     node
@@ -287,55 +290,93 @@ class Parser
     node = modularexp
 
     while look_ahead.comparator?
-      node.type = :op
-      node.token = look_ahead
+      token = look_ahead
       accept
-      node.add_child(modularexp)
+      child = node.add_child(modularexp).last
+      child.type = :op
+      child.token = token
     end
     
     node
   end
   
   def modularexp
-    arithmeticexp
+    node = arithmeticexp
     while look_ahead.parser_type == :multiplication || look_ahead.parser_type == :division || 
           look_ahead.parser_type == :module || look_ahead.parser_type == :exponentiation
+      token = look_ahead
       accept
-      arithmeticexp
+      child = node.add_child(arithmeticexp).last
+      child.type = :op
+      child.token = token
     end
+    
+    node
   end
   
   def arithmeticexp
-    unaryexp
+    node = unaryexp
     while look_ahead.parser_type == :addition || look_ahead.parser_type == :subtraction
+      token = look_ahead
       accept
-      unaryexp 
+      child = node.add_child(unaryexp).last
+      child.type = :op
+      child.token = token
     end
+    
+    node
   end
   
   def unaryexp    
-    finalexp
+    node = finalexp
     while look_ahead.parser_type == :not || look_ahead.parser_type == :hashtag
+      token = look_ahead
       accept
-      finalexp
+      child = node.add_child(finalexp).last
+      child.type = :op
+      child.token = token
     end
+    
+    node
   end
   
   def finalexp
+    node = SyntaxTree::Node.new(:type => :terminal)
+    
     case look_ahead.parser_type
-    when :nil then accept
-    when :false then accept
-    when :number then accept
-    when :string then accept
-    when :list then accept
-    when :function then accept
-    when :identifier || :open_parentheses then prefixexp
-    when :minus || :not || :hashtag
+    when :nil then
+      node.type = :nil
+      node.token = look_ahead
       accept
-      logicexp
-    when :open_brackets then tableconstructor
+    when :false then 
+      node.type = :false
+      node.token = look_ahead
+      accept
+    when :number then 
+      node.type = :number
+      node.token = look_ahead
+      accept
+    when :string then 
+      node.type = :string
+      node.token = look_ahead
+      accept
+    when :list then 
+      node.type = :list
+      node.token = look_ahead
+      accept
+    when :function then 
+      node = function
+    when :identifier || :open_parentheses then 
+      node = prefixexp
+    # when :minus || :not || :hashtag
+    #   accept
+    #   logicexp
+    when :open_brackets then 
+      node = tableconstructor
     else raise_parser_reject
     end
+    
+    node
   end
     
   def prefixexp
@@ -409,25 +450,30 @@ class Parser
   def functioncall; end
   
   def args
+    node = SyntaxTree::Node.new
+    
     if look_ahead.parser_type == :open_parentheses
       accept
       if look_ahead.parser_type == :close_parentheses
         accept
       else
-        explist
+        node = explist
+        
         accept(:close_parentheses)
       end
     else
       if look_ahead.parser_type == :open_brackets
-        tableconstructor
+        node = tableconstructor
       else
         if look_ahead.parser_type == :string
-          accept
+          node.add_terminal_child(accept)
         else
           raise_parser_reject
         end 
       end
     end
+    
+    node
   end
   
   def function
@@ -436,53 +482,72 @@ class Parser
   end
   
   def funcbody
+    node = SyntaxTree::Node.new(:type => :funcbody)
+    
     accept(:open_parentheses)
     if look_ahead.parser_type == :identifier
-      parlist
+      node.add_child(parlist)
     end
     accept(:close_parentheses)
-    block
+    node.add_child(block)
     accept(:end)
+    
+    node
   end
   
   def parlist
+    node = SyntaxTree::Node.new(:type => :parlist)
+    
     if look_ahead.parser_type == :identifier
-      accept(:identifier)
-      namelist
-      if look_ahead.parser_type == :comma
-        accept
-        accept(:list)
-      end
+      node.add_child(namelist)
     end
+    
+    if look_ahead.parser_type == :list
+      node.add_terminal_child(look_ahead)
+      accept
+    end
+    
+    node
   end
   
   def tableconstructor
+    node = SyntaxTree::Node.new(:type => :table_constructor)
+    
     accept(:open_brackets)
-    fieldlist
+    node.add_children(fieldlist)
     accept(:close_brackets)
+    
+    node 
   end
     
   def fieldlist
-    field
+    nodes = []
+    nodes << field
     while look_ahead.parser_type == :comma || look_ahead.parser_type == :semi_colon
       accept
-      (look_ahead != :close_sbrackets) ? field : break
+      nodes << field if look_ahead != :close_sbrackets
     end
+    
+    nodes
   end
   
   def field
+    node = SyntaxTree::Node.new(:type => :field)
     if look_ahead.parser_type == :open_sbrackets
       accept
-      logicexp
+      node.add_child(logicexp)
       accept(:close_sbrackets)
-    else
-      if look_ahead.parser_type == :identifier
-        accept
-        accept(:assign)
-      end
+      accept(:assign)
+      node.add_child(logicexp)
+    elsif look_ahead.parser_type != :close_brackets
+        node.add_child(logicexp)
+        if node.children.first.terminal? && look_ahead.parser_type == :assign
+          accept
+          node.add_child(logicexp)
+        end
     end
     
-    logicexp unless look_ahead.parser_type == :close_brackets
+    node
   end
   
   def fieldsep;end

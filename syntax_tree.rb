@@ -24,10 +24,13 @@ class SyntaxTree
     end
     
     def add_child(child)
-      raise "Erro de alguma coisa" unless child.valid_type?
       child.parent = self
 
       self.children << child
+    end
+    
+    def add_children(children)
+      children.each { |child| add_child(child) }
     end
     
     def add_terminal_child(token)

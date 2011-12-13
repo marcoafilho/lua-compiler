@@ -89,7 +89,9 @@ module Helper
       tabs = "\t" * level
       node.children.each do |child|
         if child.terminal?
-          puts "#{tabs}<#{child.type}>#{child.token.value}</#{child.type}>"
+          puts "#{tabs}<#{child.type} value=\"#{child.token.value}\" />"
+        elsif child.type == :terminal
+          puts "#{tabs}<#{child.type} value=\"#{child.token.value}\" />"
         else
           puts "#{tabs}<#{child.type}>"
           puts_children(child, level + 1) unless child.children.empty?
