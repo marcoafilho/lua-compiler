@@ -23,3 +23,8 @@ a opção 3 executa o parser e o scanner sequencialmente e gera apenas a saída 
 ------
 
 As saídas são sempre geradas numa pasta outputs. Agora está também sendo gerada a árvore sintática. A árvore sintática é um arquivo xml resultante do parser, ou seja, apenas a opção 1 e 3 geram o xml.
+
+Observações
+-----------
+
+É necessário deixar uma linha em branco no final de cada arquivo fonte, pois é dessa forma que o compilador reconhece o fim do arquivo.

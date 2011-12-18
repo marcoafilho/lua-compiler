@@ -76,7 +76,7 @@ class Parser
       
       if prefix_node.type == :var
         stat_node = SyntaxTree::Node.new(:type => :assign)
-        list_node = SyntaxTree::Node.new(:type => :var_list)
+        list_node = SyntaxTree::Node.new(:type => :varlist)
         stat_node.add_child(list_node)
         
         if look_ahead.parser_type == :assign

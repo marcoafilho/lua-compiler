@@ -66,7 +66,7 @@ module Helper
     end
     
     def output_parse(parse, output_type = :file)
-      puts output_file_name(:parse, ".xml")
+      output_file_name(:parse, ".xml")
       stdout = create_file(:parse, ".xml") if output_type.eql?(:file)
       
       level = 0

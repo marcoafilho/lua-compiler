@@ -97,7 +97,7 @@ class Scanner
           end
           state = :final
         when :in_diff
-          if t.eql?('=')
+          if chr.eql?('=')
             token.update_attributes(:line_number => line_info[:line_number], :type => :difference)
             state = :final
           else
@@ -341,6 +341,10 @@ class Scanner
     else
       self.line_info[:line_position] += 1
     end    
+  end
+  
+  def count_lines(file_name)
+    File.open(file_name, "r+").collect{|line| line}.size
   end
   
   def standard_error_message(chr, line_number)
